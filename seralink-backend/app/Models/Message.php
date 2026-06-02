@@ -1,16 +1,27 @@
 <?php
+
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Message extends Model {
+class Message extends Model
+{
+    use HasFactory;
+
     protected $fillable = [
-        'sender_id', 'receiver_id', 'contract_id', 'body', 'is_read'
+        'contract_id',
+        'sender_id',
+        'content',
     ];
 
-    protected $casts = ['is_read' => 'boolean'];
+    public function contract()
+    {
+        return $this->belongsTo(Contract::class);
+    }
 
-    public function sender() { return $this->belongsTo(User::class, 'sender_id'); }
-    public function receiver() { return $this->belongsTo(User::class, 'receiver_id'); }
-    public function contract() { return $this->belongsTo(Contract::class); }
+    public function sender()
+    {
+        return $this->belongsTo(User::class, 'sender_id');
+    }
 }

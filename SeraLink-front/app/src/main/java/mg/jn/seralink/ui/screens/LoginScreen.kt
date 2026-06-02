@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -31,18 +32,38 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import mg.jn.seralink.R
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
+import mg.jn.seralink.viewmodel.AuthViewModel
+import mg.jn.seralink.viewmodel.AuthState
 
-val GreenPrimary = Color(0xFF2E7D32)
-val GreenLight = Color(0xFFE8F5E9)
-val GradientStart = Color(0xFFE8F5E9)
-val GradientEnd = Color(0xFFEDE7F6)
+
 
 @Composable
 fun LoginScreen(navController: NavController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val viewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val authState by viewModel.authState.collectAsState()
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var selectedRole by remember { mutableStateOf("client") }
+
+    // Observer l'état auth
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Success -> {
+                navController.navigate(Routes.HOME) {
+                    popUpTo(Routes.LOGIN) { inclusive = true }
+                }
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -62,7 +83,6 @@ fun LoginScreen(navController: NavController) {
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Logo
             Text(
                 text = "SeraLink",
                 fontSize = 36.sp,
@@ -78,7 +98,6 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Card principale
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -94,12 +113,9 @@ fun LoginScreen(navController: NavController) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Bouton Client
                         OutlinedButton(
                             onClick = { selectedRole = "client" },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(64.dp),
+                            modifier = Modifier.weight(1f).height(64.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(
                                 2.dp,
@@ -125,12 +141,9 @@ fun LoginScreen(navController: NavController) {
                             }
                         }
 
-                        // Bouton Freelance
                         OutlinedButton(
                             onClick = { selectedRole = "freelance" },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(64.dp),
+                            modifier = Modifier.weight(1f).height(64.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(
                                 2.dp,
@@ -158,6 +171,24 @@ fun LoginScreen(navController: NavController) {
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
+
+                    // Erreur
+                    if (authState is AuthState.Error) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFFFEBEE)
+                            )
+                        ) {
+                            Text(
+                                text = (authState as AuthState.Error).message,
+                                color = Color(0xFFD32F2F),
+                                modifier = Modifier.padding(12.dp),
+                                fontSize = 13.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
 
                     // Champ Email
                     Text(
@@ -230,23 +261,31 @@ fun LoginScreen(navController: NavController) {
 
                     // Bouton Se connecter
                     Button(
-                        onClick = { navController.navigate(Routes.HOME) },
+                        onClick = {
+                            if (email.isNotBlank() && password.isNotBlank()) {
+                                viewModel.login(email, password, selectedRole)
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                        enabled = authState !is AuthState.Loading
                     ) {
-                        Text(
-                            "Se connecter",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (authState is AuthState.Loading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Se connecter", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Créer un compte
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Pas encore inscrit ? ", fontSize = 14.sp, color = Color.Gray)
                         TextButton(
@@ -264,7 +303,6 @@ fun LoginScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Séparateur OU
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
@@ -276,30 +314,31 @@ fun LoginScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Bouton Google
                     OutlinedButton(
                         onClick = {},
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, Color(0xFFE0E0E0))
                     ) {
-                        Text(
-                            "G",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            color = Color(0xFF4285F4)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Continuer avec Google", fontSize = 14.sp, color = Color.DarkGray)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_google),
+                                contentDescription = "Google",
+                                modifier = Modifier.size(24.dp),
+                                tint = Color.Unspecified
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Continuer avec Google", fontSize = 14.sp, color = Color.DarkGray)
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Footer légal
             Text(
                 text = buildAnnotatedString {
                     append("En vous connectant, vous acceptez nos ")

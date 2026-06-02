@@ -45,6 +45,22 @@ fun SeraLinkApp() {
             HomeScreen(navController = navController)
         }
 
+        composable("dashboard_freelance") {
+            DashboardFreelanceScreen(navController = navController)
+        }
+
+        composable("dashboard_client") {
+            DashboardClientScreen(navController = navController)
+        }
+
+        composable("publier_mission") {
+            PublierMissionScreen(navController = navController)
+        }
+
+        composable("missions") {
+            MissionsScreen(navController = navController)
+        }
+
         composable(
             route = Routes.JOB_DETAIL,
             arguments = listOf(navArgument("jobId") { type = NavType.IntType })
@@ -54,15 +70,39 @@ fun SeraLinkApp() {
         }
 
         composable(
+            route = "postuler/{jobId}",
+            arguments = listOf(navArgument("jobId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getInt("jobId") ?: 1
+            PostulerScreen(navController = navController, jobId = jobId)
+        }
+
+        composable("messages") {
+            MessagesListScreen(navController = navController)
+        }
+
+        composable(
+            route = "chat/{contractId}",
+            arguments = listOf(navArgument("contractId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val contractId = backStackEntry.arguments?.getInt("contractId") ?: 1
+            ChatScreen(navController = navController, contractId = contractId)
+        }
+
+        composable(Routes.MY_CONTRACTS) {
+            MyContractsScreen(navController = navController)
+        }
+
+        composable("profil") {
+            ProfilScreen(navController = navController)
+        }
+
+        composable(
             route = Routes.FREELANCE_PROFILE,
             arguments = listOf(navArgument("userId") { type = NavType.IntType })
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getInt("userId") ?: 1
             FreelanceProfileScreen(navController = navController, userId = userId)
-        }
-
-        composable(Routes.MY_CONTRACTS) {
-            MyContractsScreen(navController = navController)
         }
     }
 }
