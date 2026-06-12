@@ -72,15 +72,16 @@ class ProposalController extends Controller
         $proposal->jobListing->update(['status' => 'closed']);
 
         // Créer le contrat
-        $contract = Contract::create([
-            'job_listing_id' => $proposal->job_listing_id,
-            'client_id'      => $request->user()->id,
-            'freelance_id'   => $proposal->freelance_id,
-            'amount'         => $proposal->budget,
-            'status'         => 'active',
-            'payment_status' => 'unpaid',
-            'deadline'       => $proposal->deadline,
-        ]);
+    $contract = Contract::create([
+        'job_listing_id' => $proposal->job_listing_id,
+        'client_id'      => $request->user()->id,
+        'freelance_id'   => $proposal->freelance_id,
+        'proposal_id'    => $proposal->id,
+        'amount'         => $proposal->budget,
+        'status'         => 'active',
+        'payment_status' => 'unpaid',
+        'deadline'       => $proposal->deadline,
+    ]);
 
         return response()->json([
             'message'  => 'Proposition acceptée',

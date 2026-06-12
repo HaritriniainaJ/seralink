@@ -13,10 +13,24 @@ class Contract extends Model
         'job_listing_id',
         'client_id',
         'freelance_id',
+        'proposal_id',
         'amount',
         'status',
         'payment_status',
         'deadline',
+        'stripe_payment_id',
+        'stripe_transfer_id',
+        'client_signed',
+        'freelance_signed',
+        'client_signed_at',
+        'freelance_signed_at',
+    ];
+
+    protected $casts = [
+        'client_signed'      => 'boolean',
+        'freelance_signed'   => 'boolean',
+        'client_signed_at'   => 'datetime',
+        'freelance_signed_at' => 'datetime',
     ];
 
     public function jobListing()

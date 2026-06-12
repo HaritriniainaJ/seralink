@@ -1,6 +1,7 @@
 ﻿# SeraLink 🔗
 Plateforme Freelance Madagascar
 
+lien github :https://github.com/HaritriniainaJ/seralink/tree/semaine-2
 ## Stack
 - Mobile : Kotlin / Jetpack Compose
 - Backend : Laravel 12 + Sanctum

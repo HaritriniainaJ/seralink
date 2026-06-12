@@ -11,33 +11,49 @@ use Illuminate\Http\Request;
 class DashboardController extends Controller
 {
     // Dashboard client
-    public function client(Request $request)
-    {
-        $userId = $request->user()->id;
+public function client(Request $request)
+{
+    $userId = $request->user()->id;
 
-        $missions = JobListing::where('client_id', $userId)
-            ->withCount('proposals')
-            ->orderBy('created_at', 'desc')
-            ->get();
+    $missions = JobListing::where('client_id', $userId)
+        ->withCount('proposals')
+        ->orderBy('created_at', 'desc')
+        ->get();
 
-        $contracts = Contract::with('freelance:id,name,avatar')
-            ->where('client_id', $userId)
-            ->orderBy('created_at', 'desc')
-            ->get();
+    $contracts = Contract::with('freelance:id,name,avatar')
+        ->where('client_id', $userId)
+        ->orderBy('created_at', 'desc')
+        ->get();
 
-        $stats = [
-            'total_missions'  => $missions->count(),
-            'open_missions'   => $missions->where('status', 'open')->count(),
-            'active_contracts' => $contracts->where('status', 'active')->count(),
-            'total_spent'     => $contracts->where('payment_status', 'paid')->sum('amount'),
-        ];
+    $recentProposals = \App\Models\Proposal::with([
+        'freelance:id,name,avatar',
+        'jobListing:id,title,category'
+    ])
+    ->whereHas('jobListing', fn($q) => $q->where('client_id', $userId))
+    ->orderBy('created_at', 'desc')
+    ->limit(10)
+    ->get()
+    ->map(function ($p) {
+        $p->freelancer = $p->freelance;
+        $p->job = $p->jobListing;
+        return $p;
+    });
 
-        return response()->json([
-            'stats'     => $stats,
-            'missions'  => $missions,
-            'contracts' => $contracts,
-        ]);
-    }
+    $stats = [
+        'total_missions'   => $missions->count(),
+        'open_missions'    => $missions->where('status', 'open')->count(),
+        'active_contracts' => $contracts->where('status', 'active')->count(),
+        'total_spent'      => $contracts->where('payment_status', 'paid')->sum('amount'),
+        'total_proposals'  => $recentProposals->count(),
+    ];
+
+    return response()->json([
+        'stats'            => $stats,
+        'missions'         => $missions,
+        'contracts'        => $contracts,
+        'recent_proposals' => $recentProposals,
+    ]);
+}
 
     // Dashboard freelance
     public function freelance(Request $request)

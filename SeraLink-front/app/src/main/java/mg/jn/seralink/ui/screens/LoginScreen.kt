@@ -56,7 +56,9 @@ fun LoginScreen(navController: NavController) {
     LaunchedEffect(authState) {
         when (authState) {
             is AuthState.Success -> {
-                navController.navigate(Routes.HOME) {
+                val role = (authState as AuthState.Success).role
+                val destination = if (role == "client") "dashboard_client" else Routes.HOME
+                navController.navigate(destination) {
                     popUpTo(Routes.LOGIN) { inclusive = true }
                 }
                 viewModel.resetState()
@@ -64,7 +66,6 @@ fun LoginScreen(navController: NavController) {
             else -> {}
         }
     }
-
     Box(
         modifier = Modifier
             .fillMaxSize()

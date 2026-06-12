@@ -26,6 +26,16 @@ data class UserResponse(
     val avatar: String?
 )
 
+data class PublicUserResponse(
+    val id: Int,
+    val name: String,
+    val email: String,
+    val role: String,
+    val avatar: String? = null,
+    val bio: String? = null,
+    val skills: String? = null
+)
+
 data class LoginResponse(
     val token: String,
     val user: UserResponse
@@ -47,18 +57,21 @@ data class JobListing(
     val budgetType: String,
     val status: String,
     val deadline: String?,
-    val client: UserResponse?
+    val client: UserResponse?,
+    @SerializedName("proposals_count")
+    val proposalsCount: Int? = null,
+    @SerializedName("created_at")
+    val createdAt: String? = null
 )
 
 data class JobListingResponse(
     val data: List<JobListing>,
+    val total: Int = 0,
     @SerializedName("current_page")
-    val currentPage: Int,
+    val currentPage: Int = 1,
     @SerializedName("last_page")
-    val lastPage: Int,
-    val total: Int
+    val lastPage: Int = 1
 )
-
 data class CreateJobRequest(
     val title: String,
     val description: String,
@@ -80,13 +93,18 @@ data class Proposal(
     @SerializedName("freelance_id")
     val freelanceId: Int,
     @SerializedName("cover_letter")
-    val coverLetter: String,
+    val coverLetter: String? = null,
     val budget: Int,
-    val deadline: String,
+    val deadline: String? = null,
     val status: String,
-    val freelance: UserResponse?,
+    val freelance: UserResponse? = null,
     @SerializedName("job_listing")
-    val jobListing: JobListing?
+    val jobListing: JobListing? = null,
+    @SerializedName("contract_id")
+    val contractId: Int? = null,
+    val job: JobListing? = null,
+    @SerializedName("freelancer")
+val freelancer: UserResponse? = null,
 )
 
 data class CreateProposalRequest(
@@ -118,9 +136,12 @@ data class Contract(
     val client: UserResponse?,
     val freelance: UserResponse?,
     @SerializedName("job_listing")
-    val jobListing: JobListing?
+    val jobListing: JobListing?,
+    @SerializedName("client_signed")
+    val clientSigned: Boolean = false,
+    @SerializedName("freelance_signed")
+    val freelanceSigned: Boolean = false
 )
-
 // Message
 data class Message(
     val id: Int,
@@ -131,7 +152,11 @@ data class Message(
     val content: String,
     @SerializedName("created_at")
     val createdAt: String,
-    val sender: UserResponse?
+    val sender: UserResponse?,
+    @SerializedName("sender_type")
+    val senderType: String? = null,
+    @SerializedName("is_from_me")
+    val isFromMe: Boolean = false
 )
 
 data class SendMessageRequest(
@@ -162,16 +187,49 @@ data class DashboardStats(
 
 data class ClientDashboard(
     val stats: DashboardStats,
-    val missions: List<JobListing>,
-    val contracts: List<Contract>
-)
+    val missions: List<JobListing> = emptyList(),
+    val contracts: List<Contract> = emptyList(),
+    @SerializedName("recent_proposals")
+    val recentProposals: List<Proposal> = emptyList()
+) {
+    val totalJobs: Int get() = stats.totalMissions
+    val totalProposalsReceived: Int get() = stats.totalProposals
+    val activeContracts: Int get() = stats.activeContracts
+    val totalSpent: Int get() = stats.totalSpent
+    val jobs: List<JobListing> get() = missions
+}
 
 data class FreelanceDashboard(
     val stats: DashboardStats,
-    val proposals: List<Proposal>,
-    val contracts: List<Contract>
+    val proposals: List<Proposal> = emptyList(),
+    val contracts: List<Contract> = emptyList()
+) {
+    val totalProposals: Int get() = stats.totalProposals
+    val activeContracts: Int get() = stats.activeContracts
+    val pendingProposals: Int get() = stats.pendingProposals
+    val totalEarnings: Int get() = stats.totalRevenue
+}
+
+// Profile
+data class UpdateProfileRequest(
+    val name: String,
+    val email: String,
+    val bio: String? = null,
+    val skills: String? = null
 )
 
-// Alias pour compatibilité
+data class ContractPayResponse(
+    val message: String,
+    @SerializedName("client_secret")
+    val clientSecret: String,
+    val contract: Contract
+)
+
+data class ContractActionResponse(
+    val message: String,
+    val contract: Contract
+)
+
+// Alias
 typealias ClientDashboardResponse = ClientDashboard
 typealias FreelanceDashboardResponse = FreelanceDashboard

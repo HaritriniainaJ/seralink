@@ -12,22 +12,18 @@ class JobListingController extends Controller
         $query = JobListing::with('client:id,name,avatar')
             ->where('status', 'open');
 
-        // Filtre catégorie
         if ($request->filled('category')) {
             $query->where('category', $request->category);
         }
 
-        // Filtre budget min
         if ($request->filled('budget_min')) {
             $query->where('budget_max', '>=', $request->budget_min);
         }
 
-        // Filtre budget max
         if ($request->filled('budget_max')) {
             $query->where('budget_min', '<=', $request->budget_max);
         }
 
-        // Recherche par mot-clé
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('title', 'like', '%'.$request->search.'%')
@@ -35,8 +31,8 @@ class JobListingController extends Controller
             });
         }
 
-        $jobs = $query->orderBy('created_at', 'desc')->paginate(10);
+        $jobs = $query->orderBy('created_at', 'desc')->get();
 
-        return response()->json($jobs);
+        return response()->json(['data' => $jobs, 'total' => $jobs->count()]);
     }
 }

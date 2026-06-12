@@ -19,34 +19,41 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-
-data class ChatMessage(
-    val id: Int,
-    val content: String,
-    val isMe: Boolean,
-    val time: String,
-    val senderName: String
-)
-
-val sampleMessages = listOf(
-    ChatMessage(1, "Bonjour, j'ai bien reçu votre proposition.", false, "09:00", "TechSolutions MG"),
-    ChatMessage(2, "Bonjour ! Merci, je suis disponible dès lundi.", true, "09:05", "Moi"),
-    ChatMessage(3, "Parfait. Pouvez-vous commencer par la page d'accueil ?", false, "09:10", "TechSolutions MG"),
-    ChatMessage(4, "Oui bien sûr, je vais préparer une maquette d'abord.", true, "09:12", "Moi"),
-    ChatMessage(5, "Super, on attend votre retour. Bon courage !", false, "09:15", "TechSolutions MG"),
-)
+import mg.jn.seralink.model.Message
+import mg.jn.seralink.viewmodel.MessageViewModel
+import mg.jn.seralink.viewmodel.MessageState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(navController: NavController, contractId: Int) {
+
+    val viewModel: MessageViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val messageState by viewModel.messageState.collectAsState()
+    val sendState by viewModel.sendState.collectAsState()
+
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val conversation = sampleConversations.find { it.contractId == contractId }
 
-    LaunchedEffect(sampleMessages.size) {
-        if (sampleMessages.isNotEmpty()) {
-            listState.animateScrollToItem(sampleMessages.size - 1)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val dataStore = mg.jn.seralink.data.TokenDataStore(context)
+
+    LaunchedEffect(contractId) {
+        viewModel.loadMessages(contractId)
+    }
+
+    val messages = when (messageState) {
+        is MessageState.Success -> (messageState as MessageState.Success).messages
+        else -> emptyList()
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
         }
+    }
+
+    LaunchedEffect(sendState) {
+        if (sendState != null) viewModel.resetSend()
     }
 
     Scaffold(
@@ -55,31 +62,15 @@ fun ChatScreen(navController: NavController, contractId: Int) {
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(GreenPrimary),
+                            modifier = Modifier.size(36.dp).clip(CircleShape).background(GreenPrimary),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = conversation?.otherPersonName?.take(2)?.uppercase() ?: "??",
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text("CH", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(
-                                text = conversation?.otherPersonName ?: "Chat",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = conversation?.missionTitle ?: "",
-                                fontSize = 11.sp,
-                                color = Color(0xFF888888)
-                            )
+                            Text("Contrat #$contractId", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("Conversation", fontSize = 11.sp, color = Color(0xFF888888))
                         }
                     }
                 },
@@ -92,14 +83,9 @@ fun ChatScreen(navController: NavController, contractId: Int) {
             )
         },
         bottomBar = {
-            Surface(
-                shadowElevation = 8.dp,
-                color = Color.White
-            ) {
+            Surface(shadowElevation = 8.dp, color = Color.White) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
@@ -116,21 +102,22 @@ fun ChatScreen(navController: NavController, contractId: Int) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
+                        modifier = Modifier.size(48.dp).clip(CircleShape)
                             .background(if (messageText.isNotBlank()) GreenPrimary else Color(0xFFE0E0E0)),
                         contentAlignment = Alignment.Center
                     ) {
                         IconButton(
-                            onClick = { if (messageText.isNotBlank()) messageText = "" },
+                            onClick = {
+                                if (messageText.isNotBlank()) {
+                                    viewModel.sendMessage(contractId, messageText)
+                                    messageText = ""
+                                }
+                            },
                             enabled = messageText.isNotBlank()
                         ) {
                             Icon(
-                                Icons.Default.Send,
-                                contentDescription = "Envoyer",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                Icons.Default.Send, contentDescription = "Envoyer",
+                                tint = Color.White, modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -139,74 +126,98 @@ fun ChatScreen(navController: NavController, contractId: Int) {
         },
         containerColor = Color(0xFFF8F8F8)
     ) { padding ->
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(sampleMessages) { message ->
-                MessageBubble(message = message)
+        when (messageState) {
+            is MessageState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = GreenPrimary)
+                }
+            }
+            else -> {
+                if (messages.isEmpty() && messageState !is MessageState.Loading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.Chat, contentDescription = null,
+                                tint = Color(0xFFCCCCCC), modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "Aucun message pour l'instant",
+                                fontSize = 14.sp, color = Color(0xFF999999)
+                            )
+                            Text(
+                                "Commencez la conversation !",
+                                fontSize = 13.sp, color = Color(0xFFBBBBBB)
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(messages) { message ->
+                            RealMessageBubble(message = message)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun MessageBubble(message: ChatMessage) {
+fun RealMessageBubble(message: Message) {
+    val isMe = message.senderType == "me" || message.isFromMe
+
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isMe) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
     ) {
-        if (!message.isMe) {
+        if (!isMe) {
             Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(GreenPrimary),
+                modifier = Modifier.size(32.dp).clip(CircleShape).background(GreenPrimary),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = message.senderName.take(2).uppercase(),
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    text = message.sender?.name?.take(2)?.uppercase() ?: "??",
+                    color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
         }
-
-        Column(
-            horizontalAlignment = if (message.isMe) Alignment.End else Alignment.Start
-        ) {
+        Column(horizontalAlignment = if (isMe) Alignment.End else Alignment.Start) {
             Box(
                 modifier = Modifier
                     .clip(
                         RoundedCornerShape(
-                            topStart = if (message.isMe) 16.dp else 4.dp,
-                            topEnd = if (message.isMe) 4.dp else 16.dp,
-                            bottomStart = 16.dp,
-                            bottomEnd = 16.dp
+                            topStart = if (isMe) 16.dp else 4.dp,
+                            topEnd = if (isMe) 4.dp else 16.dp,
+                            bottomStart = 16.dp, bottomEnd = 16.dp
                         )
                     )
-                    .background(if (message.isMe) GreenPrimary else Color.White)
+                    .background(if (isMe) GreenPrimary else Color.White)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
                     .widthIn(max = 260.dp)
             ) {
                 Text(
                     text = message.content,
-                    color = if (message.isMe) Color.White else Color(0xFF1A1A1A),
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
+                    color = if (isMe) Color.White else Color(0xFF1A1A1A),
+                    fontSize = 14.sp, lineHeight = 20.sp
                 )
             }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = message.time,
-                fontSize = 11.sp,
-                color = Color(0xFF888888)
+                text = message.createdAt.takeLast(5),
+                fontSize = 11.sp, color = Color(0xFF888888)
             )
         }
     }

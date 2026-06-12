@@ -40,15 +40,22 @@ class JobViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadJobs(category: String? = null, search: String? = null) {
         viewModelScope.launch {
+            android.util.Log.d("SeraLink", "loadJobs() appelé")
             _jobState.value = JobState.Loading
             try {
+                android.util.Log.d("SeraLink", "Appel API getJobs...")
                 val response = api.getJobs(category = category, search = search)
+                android.util.Log.d("SeraLink", "Réponse: ${response.code()} - ${response.isSuccessful}")
                 if (response.isSuccessful) {
-                    _jobState.value = JobState.Success(response.body()!!.data)
+                    val jobs = response.body()!!.data
+                    android.util.Log.d("SeraLink", "Missions reçues: ${jobs.size}")
+                    _jobState.value = JobState.Success(jobs)
                 } else {
+                    android.util.Log.e("SeraLink", "Erreur API: ${response.code()}")
                     _jobState.value = JobState.Error("Erreur chargement missions")
                 }
             } catch (e: Exception) {
+                android.util.Log.e("SeraLink", "Exception: ${e.message}")
                 _jobState.value = JobState.Error("Erreur : ${e.message}")
             }
         }

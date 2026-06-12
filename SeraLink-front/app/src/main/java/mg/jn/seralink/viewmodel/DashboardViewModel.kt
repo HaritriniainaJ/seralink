@@ -50,12 +50,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val token = "Bearer ${dataStore.token.first()}"
                 val response = api.getDashboardClient(token)
+                android.util.Log.d("SeraLink", "Dashboard code: ${response.code()}")
                 if (response.isSuccessful) {
-                    _dashboardState.value = DashboardState.ClientSuccess(response.body()!!)
+                    val data = response.body()!!
+                    android.util.Log.d("SeraLink", "Proposals count: ${data.recentProposals.size}")
+                    android.util.Log.d("SeraLink", "Jobs count: ${data.jobs.size}")
+                    _dashboardState.value = DashboardState.ClientSuccess(data)
                 } else {
+                    android.util.Log.e("SeraLink", "Erreur dashboard: ${response.code()}")
                     _dashboardState.value = DashboardState.Error("Erreur dashboard")
                 }
             } catch (e: Exception) {
+                android.util.Log.e("SeraLink", "Exception dashboard: ${e.message}")
                 _dashboardState.value = DashboardState.Error("Erreur : ${e.message}")
             }
         }

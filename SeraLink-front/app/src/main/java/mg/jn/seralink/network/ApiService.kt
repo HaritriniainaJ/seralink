@@ -102,4 +102,72 @@ interface ApiService {
     suspend fun getDashboardClient(
         @Header("Authorization") token: String
     ): Response<ClientDashboard>
+
+    // Profile
+    @GET("profile")
+    suspend fun getProfile(
+        @Header("Authorization") token: String
+    ): Response<UserResponse>
+
+    @PUT("profile")
+    suspend fun updateProfile(
+        @Header("Authorization") token: String,
+        @Body request: UpdateProfileRequest
+    ): Response<UserResponse>
+
+    @GET("users/{id}")
+    suspend fun getUser(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<PublicUserResponse>
+
+    // Contracts
+    @GET("contracts")
+    suspend fun getContracts(
+        @Header("Authorization") token: String
+    ): Response<List<Contract>>
+
+    @GET("contracts/{id}")
+    suspend fun getContract(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Contract>
+
+    // Contracts actions
+    @POST("contracts/{id}/pay")
+    suspend fun payContract(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<ContractPayResponse>
+
+    @POST("contracts/{id}/complete")
+    suspend fun completeContract(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<ContractActionResponse>
+
+    @POST("contracts/{id}/release")
+    suspend fun releaseContract(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<ContractActionResponse>
+
+    @POST("contracts/{id}/sign")
+    suspend fun signContract(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<ContractActionResponse>
+
+    @GET("contracts/{id}/pdf")
+    @Streaming
+    suspend fun downloadContractPdf(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<okhttp3.ResponseBody>
+
+    @POST("contracts/{id}/dispute")
+    suspend fun disputeContract(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<ContractActionResponse>
 }

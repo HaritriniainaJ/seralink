@@ -30,7 +30,8 @@ class JobController extends Controller
             $query->where('title', 'like', '%' . $request->search . '%');
         }
 
-        return response()->json($query->paginate(10));
+        $jobs = $query->orderBy('created_at', 'desc')->get();
+        return response()->json(['data' => $jobs, 'total' => $jobs->count()]);
     }
 
     // Détail d'une mission

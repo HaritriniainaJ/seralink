@@ -19,13 +19,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import mg.jn.seralink.viewmodel.DashboardViewModel
+import mg.jn.seralink.viewmodel.DashboardState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardFreelanceScreen(navController: NavController) {
 
+    val viewModel: DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val dashboardState by viewModel.dashboardState.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Propositions", "Contrats")
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val dataStore = mg.jn.seralink.data.TokenDataStore(context)
+    val userName by dataStore.userName.collectAsState(initial = "")
+
+    LaunchedEffect(Unit) {
+        viewModel.loadFreelanceDashboard()
+    }
+
+    val proposals = when (dashboardState) {
+        is DashboardState.FreelanceSuccess -> (dashboardState as DashboardState.FreelanceSuccess).data.proposals
+        else -> emptyList()
+    }
+    val contracts = when (dashboardState) {
+        is DashboardState.FreelanceSuccess -> (dashboardState as DashboardState.FreelanceSuccess).data.contracts
+        else -> emptyList()
+    }
+    val stats = (dashboardState as? DashboardState.FreelanceSuccess)?.data
 
     Scaffold(
         topBar = {
@@ -33,7 +55,7 @@ fun DashboardFreelanceScreen(navController: NavController) {
                 title = {
                     Column {
                         Text("Tableau de bord", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Bonjour Rakoto 👋", fontSize = 12.sp, color = Color(0xFF888888))
+                        Text("Bonjour ${userName ?: ""} 👋", fontSize = 12.sp, color = Color(0xFF888888))
                     }
                 },
                 actions = {
@@ -45,97 +67,49 @@ fun DashboardFreelanceScreen(navController: NavController) {
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate(Routes.HOME) },
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Accueil", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate("missions") },
-                    icon = { Icon(Icons.Default.Work, contentDescription = null) },
-                    label = { Text("Missions", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate("messages") },
-                    icon = { Icon(Icons.Default.Message, contentDescription = null) },
-                    label = { Text("Messages", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate(Routes.MY_CONTRACTS) },
-                    icon = { Icon(Icons.Default.Description, contentDescription = null) },
-                    label = { Text("Contrats", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate("profil") },
-                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    label = { Text("Profil", fontSize = 11.sp) }
-                )
-            }
+            SeraLinkBottomBar(navController = navController, selected = "home", userRole = "freelance")
         },
         containerColor = Color(0xFFF8F8F8)
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
+            if (dashboardState is DashboardState.Loading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = GreenPrimary)
+                    }
+                }
+            }
 
-            // Stats cards
+            // Stats
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                Column(modifier = Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         DashStatCard(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.Send,
-                            value = "12",
-                            label = "Propositions",
-                            color = GreenPrimary,
-                            bgColor = GreenLight
+                            modifier = Modifier.weight(1f), icon = Icons.Default.Send,
+                            value = stats?.totalProposals?.toString() ?: "0",
+                            label = "Propositions", color = GreenPrimary, bgColor = GreenLight
                         )
                         DashStatCard(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.Description,
-                            value = "3",
-                            label = "Contrats actifs",
-                            color = Color(0xFF1565C0),
-                            bgColor = Color(0xFFE3F2FD)
+                            modifier = Modifier.weight(1f), icon = Icons.Default.Description,
+                            value = stats?.activeContracts?.toString() ?: "0",
+                            label = "Contrats actifs", color = Color(0xFF1565C0), bgColor = Color(0xFFE3F2FD)
                         )
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         DashStatCard(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.HourglassEmpty,
-                            value = "5",
-                            label = "En attente",
-                            color = Color(0xFFE65100),
-                            bgColor = Color(0xFFFFF3E0)
+                            modifier = Modifier.weight(1f), icon = Icons.Default.HourglassEmpty,
+                            value = stats?.pendingProposals?.toString() ?: "0",
+                            label = "En attente", color = Color(0xFFE65100), bgColor = Color(0xFFFFF3E0)
                         )
                         DashStatCard(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.Payments,
-                            value = "2.4M Ar",
-                            label = "Revenus totaux",
-                            color = Color(0xFF6A1B9A),
-                            bgColor = Color(0xFFF3E5F5)
+                            modifier = Modifier.weight(1f), icon = Icons.Default.Payments,
+                            value = stats?.totalEarnings?.let { "${it / 1000}k Ar" } ?: "0 Ar",
+                            label = "Revenus totaux", color = Color(0xFF6A1B9A), bgColor = Color(0xFFF3E5F5)
                         )
                     }
                 }
@@ -171,10 +145,8 @@ fun DashboardFreelanceScreen(navController: NavController) {
                 }
             }
 
-            // Contenu selon tab
             if (selectedTab == 0) {
-                // Propositions
-                if (sampleProposals.isEmpty()) {
+                if (proposals.isEmpty() && dashboardState !is DashboardState.Loading) {
                     item {
                         EmptyState(
                             icon = Icons.Default.Send,
@@ -183,16 +155,15 @@ fun DashboardFreelanceScreen(navController: NavController) {
                         )
                     }
                 } else {
-                    items(sampleProposals) { proposal ->
-                        ProposalCard(
+                    items(proposals) { proposal ->
+                        RealProposalCard(
                             proposal = proposal,
-                            onClick = { navController.navigate("messages") }
+                            onClick = { proposal.contractId?.let { navController.navigate("chat/$it") } }
                         )
                     }
                 }
             } else {
-                // Contrats
-                if (sampleContracts.isEmpty()) {
+                if (contracts.isEmpty() && dashboardState !is DashboardState.Loading) {
                     item {
                         EmptyState(
                             icon = Icons.Default.Description,
@@ -201,10 +172,10 @@ fun DashboardFreelanceScreen(navController: NavController) {
                         )
                     }
                 } else {
-                    items(sampleContracts) { contract ->
-                        ContractCard(
+                    items(contracts) { contract ->
+                        RealContractCard(
                             contract = contract,
-                            onClick = { navController.navigate("messages/${contract.id}") }
+                            onClick = { navController.navigate("chat/${contract.id}") }
                         )
                     }
                 }
@@ -213,25 +184,8 @@ fun DashboardFreelanceScreen(navController: NavController) {
     }
 }
 
-data class SampleProposal(
-    val id: Int,
-    val jobTitle: String,
-    val clientName: String,
-    val budget: Int,
-    val status: String,
-    val sentDate: String
-)
-
-val sampleProposals = listOf(
-    SampleProposal(1, "Développeur Mobile Flutter", "TechSolutions MG", 1200000, "pending", "Il y a 2 jours"),
-    SampleProposal(2, "UI/UX Designer", "Creative MG", 850000, "accepted", "Il y a 5 jours"),
-    SampleProposal(3, "Rédaction fiches produits", "E-commerce MG", 200000, "rejected", "Il y a 1 semaine"),
-    SampleProposal(4, "Développement API REST", "StartupMG", 600000, "pending", "Aujourd'hui"),
-)
-
 @Composable
-fun ProposalCard(proposal: SampleProposal, onClick: () -> Unit) {
-
+fun RealProposalCard(proposal: mg.jn.seralink.model.Proposal, onClick: () -> Unit) {
     val statusColor = when (proposal.status) {
         "accepted" -> Color(0xFF2E7D32)
         "rejected" -> Color(0xFFE53935)
@@ -249,80 +203,109 @@ fun ProposalCard(proposal: SampleProposal, onClick: () -> Unit) {
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    proposal.jobTitle,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = Color(0xFF1A1A1A),
-                    modifier = Modifier.weight(1f)
+                    proposal.jobListing?.title ?: proposal.job?.title ?: "Mission",
+                    fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                    color = Color(0xFF1A1A1A), modifier = Modifier.weight(1f)
                 )
                 Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(statusBg)
+                    modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(statusBg)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(statusLabel, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-
             Spacer(modifier = Modifier.height(8.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Business, contentDescription = null,
-                        tint = Color(0xFF888888), modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(proposal.clientName, fontSize = 13.sp, color = Color(0xFF555555))
-                }
                 Text(
                     "${proposal.budget / 1000} 000 Ar",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = GreenPrimary
+                    fontWeight = FontWeight.Bold, fontSize = 14.sp, color = GreenPrimary
                 )
             }
+            if (proposal.status == "accepted") {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+                    Icon(Icons.Default.Message, contentDescription = null,
+                        tint = GreenPrimary, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Ouvrir le chat", color = GreenPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(4.dp))
+@Composable
+fun RealContractCard(contract: mg.jn.seralink.model.Contract, onClick: () -> Unit) {
+    val statusColor = when (contract.status) {
+        "active" -> GreenPrimary
+        "completed" -> Color(0xFF1565C0)
+        "disputed" -> Color(0xFFE53935)
+        else -> Color(0xFF888888)
+    }
+    val statusBg = when (contract.status) {
+        "active" -> GreenLight
+        "completed" -> Color(0xFFE3F2FD)
+        "disputed" -> Color(0xFFFFEBEE)
+        else -> Color(0xFFF5F5F5)
+    }
+    val statusLabel = when (contract.status) {
+        "active" -> "Actif"
+        "completed" -> "Terminé"
+        "disputed" -> "Litige"
+        else -> contract.status
+    }
 
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(proposal.sentDate, fontSize = 12.sp, color = Color(0xFF888888))
-
-                // Bouton message si acceptée
-                if (proposal.status == "accepted") {
-                    TextButton(
-                        onClick = onClick,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Message, contentDescription = null,
-                            tint = GreenPrimary, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Ouvrir le chat", color = GreenPrimary,
-                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
+                Text(
+                    contract.jobListing?.title ?: "Contrat #${contract.id}",
+                    fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                    color = Color(0xFF1A1A1A), modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(statusBg)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(statusLabel, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "${contract.amount / 1000} 000 Ar",
+                fontWeight = FontWeight.Bold, fontSize = 14.sp, color = GreenPrimary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = onClick, contentPadding = PaddingValues(0.dp)) {
+                Icon(Icons.Default.Message, contentDescription = null,
+                    tint = GreenPrimary, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Ouvrir le chat", color = GreenPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -338,20 +321,13 @@ fun DashStatCard(
     bgColor: Color
 ) {
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier, shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(bgColor),
+                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(bgColor),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
@@ -367,15 +343,9 @@ fun DashStatCard(
 
 @Composable
 fun EmptyState(icon: ImageVector, message: String, subtitle: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(40.dp),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null,
-                modifier = Modifier.size(64.dp), tint = Color(0xFFBBBBBB))
+            Icon(icon, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color(0xFFBBBBBB))
             Spacer(modifier = Modifier.height(12.dp))
             Text(message, color = Color(0xFF888888), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(4.dp))

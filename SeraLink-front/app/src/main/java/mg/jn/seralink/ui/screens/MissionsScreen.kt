@@ -23,32 +23,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import mg.jn.seralink.model.JobListing
+import mg.jn.seralink.viewmodel.JobViewModel
+import mg.jn.seralink.viewmodel.JobState
 
-val filters = listOf("Récent", "Budget", "Urgent", "Long terme")
-
-val sampleMissions = listOf(
-    JobListing(1, 1, "Création d'un site e-commerce pour artisanat local",
-        "Nous recherchons un développeur pour concevoir une plateforme de vente en ligne mettant en avant...",
-        "Développement Web", 150000, 150000, "fixed", "open", "Dans 7 jours",
-        mg.jn.seralink.model.UserResponse(1, "Andry R.", "andry@seralink.mg", "client", null)),
-    JobListing(2, 2, "Logo et charte graphique pour une startup Agritech",
-        "Besoin d'une identité visuelle forte qui combine agriculture et technologie pour notre nouvelle...",
-        "Graphisme & Design", 80000, 80000, "fixed", "open", "Dans 3 jours",
-        mg.jn.seralink.model.UserResponse(2, "Mialy T.", "mialy@seralink.mg", "client", null)),
-    JobListing(3, 3, "Traduction technique Français - Malagasy",
-        "Besoin d'une traduction urgente d'un manuel d'utilisation de 50 pages pour une ONG...",
-        "Rédaction & Traduction", 250000, 250000, "fixed", "open", "Dans 24h",
-        mg.jn.seralink.model.UserResponse(3, "Jean P.", "jean@seralink.mg", "client", null)),
-    JobListing(4, 4, "Campagne Publicitaire Facebook & Instagram",
-        "Expert en Ads recherché pour booster la visibilité d'une agence de voyage locale avant la haute...",
-        "Marketing Digital", 120000, 120000, "fixed", "open", "Dans 14 jours",
-        mg.jn.seralink.model.UserResponse(4, "Feno S.", "feno@seralink.mg", "client", null)),
-)
+val missionFilters = listOf("Récent", "Budget", "Urgent", "Long terme")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MissionsScreen(navController: NavController) {
+    val viewModel: JobViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val jobState by viewModel.jobState.collectAsState()
     var selectedFilter by remember { mutableStateOf("Récent") }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val dataStore = mg.jn.seralink.data.TokenDataStore(context)
+    val userRole by dataStore.userRole.collectAsState(initial = null)
+
+    LaunchedEffect(Unit) {
+        viewModel.loadJobs()
+    }
+
+    val displayJobs = when (jobState) {
+        is JobState.Success -> (jobState as JobState.Success).jobs
+        else -> emptyList()
+    }
 
     Scaffold(
         topBar = {
@@ -56,87 +55,34 @@ fun MissionsScreen(navController: NavController) {
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp))
                                 .background(GreenPrimary),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                Icons.Default.Star,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.Default.Star, contentDescription = null,
+                                tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "SeraLink",
-                            fontWeight = FontWeight.ExtraBold,
-                            color = GreenPrimary,
-                            fontSize = 20.sp
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                    }
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Person, contentDescription = null)
+                        Text("SeraLink", fontWeight = FontWeight.ExtraBold,
+                            color = GreenPrimary, fontSize = 20.sp)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate(Routes.HOME) },
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Accueil", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Work, contentDescription = null) },
-                    label = { Text("Missions", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Message, contentDescription = null) },
-                    label = { Text("Messages", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate(Routes.MY_CONTRACTS) },
-                    icon = { Icon(Icons.Default.Description, contentDescription = null) },
-                    label = { Text("Contrats", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    label = { Text("Profil", fontSize = 11.sp) }
-                )
-            }
+            SeraLinkBottomBar(navController = navController, selected = "missions", userRole = userRole)
         },
         containerColor = Color(0xFFF8F8F8)
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             // Header
             item {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
+                    modifier = Modifier.fillMaxWidth().background(Color.White)
                         .padding(horizontal = 20.dp, vertical = 20.dp)
                 ) {
                     Row(
@@ -145,53 +91,72 @@ fun MissionsScreen(navController: NavController) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Missions\ndisponibles",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A1A),
-                            lineHeight = 30.sp
+                            text = "Missions\ndisponibles", fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A), lineHeight = 30.sp
                         )
                         OutlinedButton(
                             onClick = {},
                             shape = RoundedCornerShape(10.dp),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp, Color(0xFFE0E0E0)
-                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0)),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Icon(
-                                Icons.Default.FilterList,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = Color(0xFF555555)
-                            )
+                            Icon(Icons.Default.FilterList, contentDescription = null,
+                                modifier = Modifier.size(16.dp), tint = Color(0xFF555555))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "Filtres",
-                                fontSize = 13.sp,
-                                color = Color(0xFF555555)
-                            )
+                            Text("Filtres", fontSize = 13.sp, color = Color(0xFF555555))
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Filtres chips
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            if (it.length >= 3 || it.isEmpty()) {
+                                viewModel.loadJobs(search = it.ifBlank { null })
+                            }
+                        },
+                        placeholder = { Text("Rechercher...", color = Color(0xFFAAAAAA), fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFFAAAAAA)) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = ""; viewModel.loadJobs() }) {
+                                    Icon(Icons.Default.Close, contentDescription = null, tint = Color(0xFFAAAAAA))
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedBorderColor = GreenPrimary,
+                            unfocusedContainerColor = Color(0xFFF8F8F8),
+                            focusedContainerColor = Color.White
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(filters) { filter ->
+                        items(missionFilters) { filter ->
                             val isSelected = filter == selectedFilter
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(
-                                        if (isSelected) GreenPrimary else Color.White
-                                    )
-                                    .border(
-                                        1.dp,
+                                    .background(if (isSelected) GreenPrimary else Color.White)
+                                    .border(1.dp,
                                         if (isSelected) GreenPrimary else Color(0xFFE0E0E0),
-                                        RoundedCornerShape(20.dp)
-                                    )
-                                    .clickable { selectedFilter = filter }
+                                        RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        selectedFilter = filter
+                                        when (filter) {
+                                            "Récent" -> viewModel.loadJobs()
+                                            "Urgent" -> viewModel.loadJobs(search = "urgent")
+                                            else -> viewModel.loadJobs()
+                                        }
+                                    }
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Text(
@@ -206,13 +171,67 @@ fun MissionsScreen(navController: NavController) {
                 }
             }
 
+            // Loading
+            if (jobState is JobState.Loading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = GreenPrimary)
+                    }
+                }
+            }
+
+            // Erreur
+            if (jobState is JobState.Error) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.WifiOff, contentDescription = null,
+                                tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Impossible de charger les missions",
+                                color = Color(0xFFD32F2F), fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            // Vide
+            if (displayJobs.isEmpty() && jobState !is JobState.Loading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(48.dp),
+                        contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Work, contentDescription = null,
+                                tint = Color(0xFFCCCCCC), modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Aucune mission disponible",
+                                fontSize = 14.sp, color = Color(0xFF999999))
+                        }
+                    }
+                }
+            }
+
+            // Compteur
+            if (jobState is JobState.Success && displayJobs.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "${displayJobs.size} mission(s) trouvée(s)",
+                        fontSize = 13.sp, color = Color(0xFF888888),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                    )
+                }
+            }
+
             // Liste missions
-            items(sampleMissions) { job ->
+            items(displayJobs) { job ->
                 Spacer(modifier = Modifier.height(12.dp))
-                MissionCard(
-                    job = job,
-                    onClick = { navController.navigate("job_detail/${job.id}") }
-                )
+                MissionCard(job = job, onClick = { navController.navigate("job_detail/${job.id}") })
             }
         }
     }
@@ -223,99 +242,46 @@ fun MissionCard(job: JobListing, onClick: () -> Unit) {
     val isUrgent = job.deadline?.contains("24h") == true
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-
-            // Catégorie + Urgent + Favori
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+            Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                verticalAlignment = Alignment.CenterVertically) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(GreenLight)
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = job.category,
-                            color = GreenPrimary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    Box(modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                        .background(GreenLight).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                        Text(job.category, color = GreenPrimary, fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold)
                     }
                     if (isUrgent) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color(0xFFFFEBEE))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "Urgent",
-                                color = Color(0xFFE53935),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        Box(modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFFFFEBEE)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                            Text("Urgent", color = Color(0xFFE53935), fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
-                Icon(
-                    Icons.Default.FavoriteBorder,
-                    contentDescription = null,
-                    tint = Color(0xFFBBBBBB),
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.FavoriteBorder, contentDescription = null,
+                    tint = Color(0xFFBBBBBB), modifier = Modifier.size(20.dp))
             }
 
             Spacer(modifier = Modifier.height(10.dp))
-
-            // Titre
-            Text(
-                text = job.title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = Color(0xFF1A1A1A),
-                lineHeight = 22.sp
-            )
-
+            Text(job.title, fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                color = Color(0xFF1A1A1A), lineHeight = 22.sp)
             Spacer(modifier = Modifier.height(6.dp))
-
-            // Description
-            Text(
-                text = job.description,
-                fontSize = 13.sp,
-                color = Color(0xFF888888),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 18.sp
-            )
-
+            Text(job.description, fontSize = 13.sp, color = Color(0xFF888888),
+                maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Tags (catégorie comme tag)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(job.category.split(" ").first(), job.budgetType).forEach { tag ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFF5F5F5))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = tag,
-                            fontSize = 11.sp,
-                            color = Color(0xFF555555)
-                        )
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFF5F5F5)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                        Text(tag, fontSize = 11.sp, color = Color(0xFF555555))
                     }
                 }
             }
@@ -324,81 +290,39 @@ fun MissionCard(job: JobListing, onClick: () -> Unit) {
             HorizontalDivider(color = Color(0xFFF0F0F0))
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Client + Budget + Délai
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Avatar
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFBDBDBD)),
-                    contentAlignment = Alignment.Center
-                ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(GreenPrimary),
+                    contentAlignment = Alignment.Center) {
                     Text(
-                        text = job.client?.name?.take(2)?.uppercase() ?: "??",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        job.client?.name?.split(" ")?.mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                            ?.take(2)?.joinToString("") ?: "??",
+                        color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = job.client?.name ?: "",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        color = Color(0xFF1A1A1A)
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFC107),
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = " 4.8",
-                            fontSize = 11.sp,
-                            color = Color(0xFF888888)
-                        )
-                    }
+                    Text(job.client?.name ?: "", fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp, color = Color(0xFF1A1A1A))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "${job.budgetMin / 1000} 000 Ar",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = GreenPrimary
-                    )
-                    Text(
-                        text = job.deadline ?: "",
-                        fontSize = 11.sp,
-                        color = if (isUrgent) Color(0xFFE53935) else Color(0xFF888888)
-                    )
+                    Text("${job.budgetMin / 1000} 000 Ar", fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp, color = GreenPrimary)
+                    if (!job.deadline.isNullOrEmpty()) {
+                        Text(job.deadline, fontSize = 11.sp,
+                            color = if (isUrgent) Color(0xFFE53935) else Color(0xFF888888))
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
-            // Bouton Voir la mission
             Button(
                 onClick = onClick,
                 modifier = Modifier.fillMaxWidth().height(44.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = GreenPrimary
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = GreenPrimary),
                 border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenPrimary)
             ) {
-                Text(
-                    "Voir la mission",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
-                )
+                Text("Voir la mission", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
         }
     }

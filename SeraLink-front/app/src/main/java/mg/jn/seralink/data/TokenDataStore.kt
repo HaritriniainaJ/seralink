@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 val Context.dataStore by preferencesDataStore(name = "seralink_prefs")
@@ -37,6 +38,14 @@ class TokenDataStore(private val context: Context) {
             prefs[USER_NAME_KEY] = name
             prefs[USER_ID_KEY] = id.toString()
         }
+    }
+
+    suspend fun getToken(): String? {
+        return context.dataStore.data.map { it[TOKEN_KEY] }.first()
+    }
+
+    suspend fun getUserId(): Int? {
+        return context.dataStore.data.map { it[USER_ID_KEY] }.first()?.toIntOrNull()
     }
 
     suspend fun clearToken() {

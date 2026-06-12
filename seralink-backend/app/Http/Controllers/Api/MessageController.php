@@ -10,20 +10,24 @@ use Illuminate\Http\Request;
 class MessageController extends Controller
 {
     // Liste des messages d'un contrat
-    public function index(Request $request, $contractId)
-    {
-        $contract = Contract::where(function ($q) use ($request) {
-            $q->where('client_id', $request->user()->id)
-              ->orWhere('freelance_id', $request->user()->id);
-        })->findOrFail($contractId);
+public function index(Request $request, $contractId)
+{
+    $contract = Contract::where(function ($q) use ($request) {
+        $q->where('client_id', $request->user()->id)
+          ->orWhere('freelance_id', $request->user()->id);
+    })->findOrFail($contractId);
 
-        $messages = Message::with('sender:id,name,avatar')
-            ->where('contract_id', $contractId)
-            ->orderBy('created_at', 'asc')
-            ->get();
+    $messages = Message::with('sender:id,name,avatar')
+        ->where('contract_id', $contractId)
+        ->orderBy('created_at', 'asc')
+        ->get()
+        ->map(function ($message) use ($request) {
+            $message->is_from_me = $message->sender_id === $request->user()->id;
+            return $message;
+        });
 
-        return response()->json($messages);
-    }
+    return response()->json($messages);
+}
 
     // Envoyer un message
     public function store(Request $request, $contractId)

@@ -21,128 +21,75 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import mg.jn.seralink.data.TokenDataStore
+import mg.jn.seralink.model.Contract
+import mg.jn.seralink.viewmodel.ContractViewModel
+import mg.jn.seralink.viewmodel.ContractViewModelFactory
 
-data class ConversationItem(
-    val id: Int,
-    val contractId: Int,
-    val otherPersonName: String,
-    val lastMessage: String,
-    val time: String,
-    val unreadCount: Int = 0,
-    val missionTitle: String,
-    val isOnline: Boolean = false,
-    val isRead: Boolean = true
-)
-
-val sampleConversations = listOf(
-    ConversationItem(1, 1, "Mamy Rakoto", "Bonjour, j'ai bien reçu les spécifica...", "14:32", 2, "Création site e-commerce", isOnline = true, isRead = false),
-    ConversationItem(2, 2, "Lalao Razafy", "Parfait, on se voit demain pour le kick...", "Hier", 0, "Logo startup Agritech", isOnline = false, isRead = true),
-    ConversationItem(3, 3, "Jean Dupont (Client)", "Merci pour la rapidité de l'envoi du contrat.", "Lun.", 0, "Traduction technique", isOnline = false, isRead = true),
-    ConversationItem(4, 4, "Andry Randria", "Est-ce que tu pourrais m'envoyer le...", "Lun.", 1, "Campagne Facebook", isOnline = true, isRead = false),
-    ConversationItem(5, 5, "Sitraka Andria", "Le paiement a été validé par la plateforme.", "Dim.", 0, "Développement API", isOnline = false, isRead = true),
-)
-
-val messageFilters = listOf("Tout", "Non lus", "Missions", "Favoris")
+val msgFilterList = listOf("Tout", "Actifs", "Terminés")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessagesListScreen(navController: NavController) {
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val dataStore = TokenDataStore(context)
+    val viewModel: ContractViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = ContractViewModelFactory(dataStore)
+    )
+    val contracts by viewModel.contracts.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val userRole by dataStore.userRole.collectAsState(initial = "freelance")
+
     var selectedFilter by remember { mutableStateOf("Tout") }
     var searchText by remember { mutableStateOf("") }
 
-    val filteredConversations = when (selectedFilter) {
-        "Non lus" -> sampleConversations.filter { !it.isRead }
-        else -> sampleConversations
-    }.filter {
-        searchText.isEmpty() || it.otherPersonName.contains(searchText, ignoreCase = true)
+    LaunchedEffect(Unit) {
+        viewModel.loadContracts()
+    }
+
+    val filteredContracts = contracts.filter { contract ->
+        val matchesFilter = when (selectedFilter) {
+            "Actifs" -> contract.status == "active"
+            "Terminés" -> contract.status == "completed"
+            else -> true
+        }
+        val otherName = if (userRole == "client") contract.freelance?.name else contract.client?.name
+        val matchesSearch = searchText.isEmpty() ||
+                otherName?.contains(searchText, ignoreCase = true) == true ||
+                contract.jobListing?.title?.contains(searchText, ignoreCase = true) == true
+        matchesFilter && matchesSearch
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = {}) {
-                            Icon(Icons.Default.Menu, contentDescription = null, tint = Color(0xFF333333))
-                        }
-                        Text(
-                            "Messages",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = GreenPrimary
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFF333333))
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFBDBDBD))
-                            .padding(end = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Messages", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = GreenPrimary)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate(Routes.HOME) },
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Accueil", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate("missions") },
-                    icon = { Icon(Icons.Default.Work, contentDescription = null) },
-                    label = { Text("Missions", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Message, contentDescription = null) },
-                    label = { Text("Messages", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate(Routes.MY_CONTRACTS) },
-                    icon = { Icon(Icons.Default.Description, contentDescription = null) },
-                    label = { Text("Contrats", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { navController.navigate("profil") },
-                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    label = { Text("Profil", fontSize = 11.sp) }
-                )
-            }
+            SeraLinkBottomBar(navController = navController, selected = "messages", userRole = userRole)
         },
         containerColor = Color(0xFFF8F8F8)
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(Color.White)
-        ) {
-            // Barre de recherche
+        Column(modifier = Modifier.fillMaxSize().padding(padding).background(Color.White)) {
+
             OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
                 placeholder = { Text("Rechercher une conversation...", fontSize = 14.sp, color = Color(0xFFAAAAAA)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFFAAAAAA)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                trailingIcon = {
+                    if (searchText.isNotEmpty()) {
+                        IconButton(onClick = { searchText = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = Color(0xFFAAAAAA))
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -153,13 +100,12 @@ fun MessagesListScreen(navController: NavController) {
                 singleLine = true
             )
 
-            // Filtres
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
-                items(messageFilters) { filter ->
+                items(msgFilterList) { filter ->
                     val isSelected = filter == selectedFilter
                     Box(
                         modifier = Modifier
@@ -181,29 +127,38 @@ fun MessagesListScreen(navController: NavController) {
 
             HorizontalDivider(color = Color(0xFFF0F0F0))
 
-            // Liste conversations
-            if (filteredConversations.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color(0xFFBBBBBB))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Aucune conversation", color = Color(0xFF888888), fontSize = 15.sp)
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = GreenPrimary)
                     }
                 }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(filteredConversations) { conversation ->
-                        ConversationCard(
-                            conversation = conversation,
-                            onClick = { navController.navigate("chat/${conversation.contractId}") }
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 86.dp, end = 16.dp),
-                            color = Color(0xFFF0F0F0)
-                        )
+                filteredContracts.isNotEmpty() -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(filteredContracts) { contract ->
+                            ContractConversationCard(
+                                contract = contract,
+                                userRole = userRole,
+                                onClick = { navController.navigate("chat/${contract.id}") }
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 86.dp, end = 16.dp),
+                                color = Color(0xFFF0F0F0)
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.Message, contentDescription = null,
+                                modifier = Modifier.size(64.dp), tint = Color(0xFFBBBBBB)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Aucune conversation", color = Color(0xFF888888), fontSize = 15.sp)
+                            Text("Vos conversations apparaîtront ici", color = Color(0xFFBBBBBB), fontSize = 13.sp)
+                        }
                     }
                 }
             }
@@ -212,54 +167,39 @@ fun MessagesListScreen(navController: NavController) {
 }
 
 @Composable
-fun ConversationCard(conversation: ConversationItem, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        color = if (!conversation.isRead) Color(0xFFF0FFF0) else Color.White
-    ) {
+fun ContractConversationCard(contract: Contract, userRole: String?, onClick: () -> Unit) {
+    val otherPerson = if (userRole == "client") contract.freelance else contract.client
+    val otherName = otherPerson?.name ?: "Inconnu"
+    val initials = otherName.split(" ")
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .take(2).joinToString("").ifEmpty { "??" }
+
+    val statusColor = when (contract.status) {
+        "active" -> GreenPrimary
+        "completed" -> Color(0xFF1565C0)
+        "disputed" -> Color(0xFFE53935)
+        else -> Color(0xFF888888)
+    }
+    val statusLabel = when (contract.status) {
+        "active" -> "Actif"
+        "completed" -> "Terminé"
+        "disputed" -> "Litige"
+        "cancelled" -> "Annulé"
+        else -> contract.status
+    }
+
+    Surface(onClick = onClick, color = Color.White) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar avec indicateur online
-            Box(modifier = Modifier.size(52.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .background(GreenPrimary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = conversation.otherPersonName.take(2).uppercase(),
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                if (conversation.isOnline) {
-                    Box(
-                        modifier = Modifier
-                            .size(13.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .align(Alignment.BottomEnd)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF4CAF50))
-                                .align(Alignment.Center)
-                        )
-                    }
-                }
+            Box(
+                modifier = Modifier.size(52.dp).clip(CircleShape).background(GreenPrimary),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(initials, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -267,50 +207,28 @@ fun ConversationCard(conversation: ConversationItem, onClick: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = conversation.otherPersonName,
-                        fontWeight = if (!conversation.isRead) FontWeight.Bold else FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        color = Color(0xFF1A1A1A)
+                        otherName, fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp, color = Color(0xFF1A1A1A)
                     )
-                    Text(
-                        text = conversation.time,
-                        fontSize = 12.sp,
-                        color = if (!conversation.isRead) GreenPrimary else Color(0xFF888888),
-                        fontWeight = if (!conversation.isRead) FontWeight.SemiBold else FontWeight.Normal
-                    )
-                }
-                Spacer(modifier = Modifier.height(3.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = conversation.lastMessage,
-                        fontSize = 13.sp,
-                        color = if (!conversation.isRead) Color(0xFF333333) else Color(0xFF888888),
-                        fontWeight = if (!conversation.isRead) FontWeight.Medium else FontWeight.Normal,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (conversation.unreadCount > 0) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(GreenPrimary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = conversation.unreadCount.toString(),
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(statusColor.copy(alpha = 0.1f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(statusLabel, fontSize = 11.sp, color = statusColor, fontWeight = FontWeight.SemiBold)
                     }
                 }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    contract.jobListing?.title ?: "Contrat #${contract.id}",
+                    fontSize = 13.sp, color = Color(0xFF888888), maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    "${contract.amount / 1000} 000 Ar",
+                    fontSize = 12.sp, color = GreenPrimary, fontWeight = FontWeight.Medium
+                )
             }
         }
     }
