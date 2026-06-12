@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import mg.jn.seralink.viewmodel.AuthViewModel
 import mg.jn.seralink.viewmodel.AuthState
+import androidx.compose.foundation.Image
 
 
 
@@ -84,17 +85,16 @@ fun LoginScreen(navController: NavController) {
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            Text(
-                text = "SeraLink",
-                fontSize = 36.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = GreenPrimary
+            Image(
+                painter = painterResource(id = R.drawable.seralink_logo),
+                contentDescription = "SeraLink",
+                modifier = Modifier.height(56.dp)
             )
             Text(
                 text = "La plateforme freelance malgache",
                 fontSize = 14.sp,
                 color = Color(0xFF666666),
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = 8.dp)
             )
 
             Spacer(modifier = Modifier.height(32.dp))

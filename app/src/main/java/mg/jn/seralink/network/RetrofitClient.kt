@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
 
     // ========================================
-    private val MODE = AppMode.EMULATOR
+    private val MODE = AppMode.PHONE
     // ========================================
 
     enum class AppMode { EMULATOR, PHONE }

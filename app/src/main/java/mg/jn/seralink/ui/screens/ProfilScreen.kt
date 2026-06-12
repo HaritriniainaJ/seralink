@@ -36,12 +36,20 @@ fun ProfilScreen(navController: NavController) {
     val viewModel: ProfilViewModel = viewModel(factory = ProfilViewModelFactory(dataStore))
     val profilState by viewModel.profilState.collectAsState()
     val userRole by dataStore.userRole.collectAsState(initial = null)
+    val reviewAverage by viewModel.reviewAverage.collectAsState()
+    val reviewCount by viewModel.reviewCount.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadMyProfile()
     }
 
     val user = (profilState as? ProfilState.Success)?.user
+
+    LaunchedEffect(profilState) {
+        val u = (profilState as? ProfilState.Success)?.user
+        if (u != null) viewModel.loadUserReviews(u.id)
+    }
+
     val displayName = user?.name ?: "Chargement..."
     val displayEmail = user?.email ?: ""
     val displayRole = user?.role ?: userRole ?: "freelance"
@@ -86,11 +94,25 @@ fun ProfilScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        modifier = Modifier.size(84.dp).clip(CircleShape).background(GreenPrimary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(initials, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Box(contentAlignment = Alignment.BottomEnd) {
+                        Box(
+                            modifier = Modifier.size(90.dp).clip(CircleShape).background(GreenPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(initials, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Box(
+                            modifier = Modifier.size(26.dp).clip(CircleShape)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Verified,
+                                contentDescription = null,
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -107,8 +129,37 @@ fun ProfilScreen(navController: NavController) {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(displayEmail, fontSize = 13.sp, color = Color(0xFF888888))
+
+                    if (reviewCount > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Star, contentDescription = null,
+                                tint = Color(0xFFFFC107), modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("$reviewAverage ($reviewCount avis)",
+                                fontSize = 13.sp, color = Color(0xFF555555), fontWeight = FontWeight.Medium)
+                        }
+
+                        val (badgeText, badgeColor, badgeBg) = when {
+                            reviewAverage >= 4.5 && reviewCount >= 5 ->
+                                Triple("⭐ Top Freelance", Color(0xFFB8860B), Color(0xFFFFF8E1))
+                            reviewAverage >= 4.0 ->
+                                Triple("✓ Recommandé", Color(0xFF2E7D32), Color(0xFFE8F5E9))
+                            else -> Triple("", Color.Transparent, Color.Transparent)
+                        }
+                        if (badgeText.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                                    .background(badgeBg)
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(badgeText, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = badgeColor)
+                            }
+                        }
+                    }
                 }
             }
 
